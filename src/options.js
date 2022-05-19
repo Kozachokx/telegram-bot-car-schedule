@@ -3,6 +3,23 @@ const generateSelectHourOptions = (arr) => {
   arr.map()
 }
 
+const generateFirstBookOptions = ({ plateString }) => {
+  const keyboard = [
+    [{ text: 'Змінити номер', callback_data: `/change_car_plate` }]
+  ]
+
+  if (plateString) {
+    keyboard[0].push({ text: 'Вибрати дату', callback_data: `/week>0` })
+  }
+
+
+  return {
+  reply_markup: JSON.stringify({
+    inline_keyboard: keyboard
+  })
+  }
+}
+
 // this week = 0 | nextWeek = 1 | previousWeek = -1
 const genereteChooseDayOptions = (week = 0) => {
   const choosen = week * 7
@@ -35,6 +52,7 @@ const platesPrefix = '/plates '
 
 module.exports = {
   genereteChooseDayOptions,
+  generateFirstBookOptions,
 
   startOptions: {
     reply_markup: JSON.stringify({

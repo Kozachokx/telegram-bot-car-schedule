@@ -1,4 +1,5 @@
 const CONFIG = require('./config')
+const languagePack = require('./language');
 
 const { genereteSchedule } = require('./const')
 
@@ -12,7 +13,7 @@ const CAR_PLATES = require('../mockDataPlates')
 console.log('Hey')
 console.log(CAR_PLATES.length)
 
-const { paginate } = require('./shared')
+const { paginate, dates, message } = require('./shared')
  
 const Text = require('./language')
 
@@ -22,6 +23,7 @@ const platesPrefix = '/plates '
 const choseDayRegExp = new RegExp(/(?<=\/week>)[\d]+/)
 const choseDayPrefix = '/week> '
 
+const choosedPlateRegExp = new RegExp(/(?<=\/plate )[\d]+/)
 
 const { getConnection, requestWrapper } = require('./database/database');
 const { date } = require('./shared');
@@ -33,6 +35,7 @@ const genereteButton = (text, callback_data) => {
 const paginationSize = 9;
 
 const options = require('./options');
+const { stringify } = require('querystring');
 
 // function getPagination( current, maxpage ) {
 //   var keys = [];
@@ -49,6 +52,14 @@ const options = require('./options');
 //   };
 // }
 
+const formatMonthDateByDate = (date) => {
+  date = new Date(date)
+  // new Date().getUTCDay()
+  const day = date.getUTCDate()
+  const month = Number(date.getUTCMonth()) + 1
+  return `${String(day).padStart(2,'0')}.${String(month).padStart(2,'0')}`
+}
+
 bot.onText(/^\/book>[\d]+/g, (msg) => {
   const currentDate = new Date()
 
@@ -59,14 +70,33 @@ bot.onText(/^\/book>[\d]+/g, (msg) => {
   bot.sendMessage(msg.chat.id, 'Choose day',options.genereteChooseDayOptions(0))
 })
 
-bot.onText(/^✅(\W)+/g, (msg) => {
-  const currentDate = new Date()
+bot.onText(/^✅(\W)+/g, async (msg) => {
+  await getConnection()
+  const user = await User.findOne({ id: msg.from.id })
+
+  if (!user) {
+    return bot.sendMessage(msg.chat.id, `Wrong sequesnce! You are not authorized. Write: /start`)
+  }
+
+  let plateString = undefined
+
+  if(
+    user.car_plate !== undefined
+    && user.car_plate !== null
+    && String(user.car_plate).length
+  ) {
+    plateString = String(user.car_plate).padStart(4, '0')
+  }
+
+  const responceMsg = message.generate.bookFirstMessage({ plateString })
+
 
   // console.log(x)
 
   // bot.sendMessage(msg.chat.id, `${currentDate}`)
 
-  bot.sendMessage(msg.chat.id, 'Choose day',options.genereteChooseDayOptions(0))
+  bot.sendMessage(msg.chat.id, `${responceMsg}`, options.generateFirstBookOptions({ plateString }))
+  // bot.sendMessage(msg.chat.id, 'Choose day',options.genereteChooseDayOptions(0))
 })
 
 
@@ -109,21 +139,31 @@ const generateSelectDayOption = (platesArray, unixDay, backCommand) => {
 
 const generatePlatesOptionByDBData = (platesArray, page) => {
   const platesButtonsInLine = 3
-  const buttons = platesArray.slice(0, platesArray.length-1).map(plate => genereteButton(plate, `/plate ${plate}`))
-  const additional = []
+  const additional = [{ text: 'Назад', callback_data: `/change_car_plate` }]
+  const platesButtons = []
+
+  if (platesArray && platesArray.length){
+    if (platesArray.length > paginationSize) {
+      platesArray.splice(platesArray.length-1)
+      // Add - Next button
+      additional.push({text: 'Next page', callback_data: `/plates ${String(platesArray[0])[0]}>${page+1}`})
+    }
+    const buttons = platesArray.map(plate => genereteButton(plate, `/plate ${plate}`))
+    platesButtons.push(...createMatrix(buttons, platesButtonsInLine))
+  }
 
   if (page > 1) {
     // then Previous button
     additional.push({text: 'Previous page', callback_data: `/plates ${String(platesArray[0])[0]}>${page-1}`})
   }
-  if (platesArray.length > paginationSize) {
-    // then Next button
-    additional.push({text: 'Next page', callback_data: `/plates ${String(platesArray[0])[0]}>${page+1}`})
-  }
+  // if (platesArray.length > paginationSize) {
+  //   // then Next button
+  //   additional.push({text: 'Next page', callback_data: `/plates ${String(platesArray[0])[0]}>${page+1}`})
+  // }
 
   return {
     reply_markup: JSON.stringify({
-      inline_keyboard: [...createMatrix(buttons, platesButtonsInLine), additional]
+      inline_keyboard: [...platesButtons, additional]
     })
   }
 } 
@@ -173,12 +213,10 @@ bot.onText(/\/start/, async (msg) => {
         language_code: user.language_code
       }).save()
     
-    bot.sendMessage(msg.chat.id, `Hello`, options.startOptions);
+    bot.sendMessage(msg.chat.id, languagePack[`UA`].GREETING, options.startOptions);
   } catch (err) {
-    console.log(' ')
-    console.log(err)
+    console.log('Error on /start. Error: ',err)
     writeLogInDb('Error on /start', 'Error: ' + err, true)
-    console.log(' - - ')
   }
 });
 
@@ -221,15 +259,23 @@ bot.onText(/\/change_car_plate/gi, async (msg) => {
 
 bot.on('callback_query', async (cmd) => {
 
+  const changeCarPlate = new RegExp(/\/change_car_plate/gi).test(cmd.data)
+
+  if (changeCarPlate) {
+    bot.deleteMessage(cmd.message.chat.id, cmd.message.message_id)
+    return bot.sendMessage(cmd.message.chat.id, `Find your car plate`, options.selectCarPlatesOption);
+  }
+
   const isChoosingPlate = plateRegExp.test(cmd.data)
   const isChoosingDay = choseDayRegExp.test(cmd.data)
+  const choosedPlate = choosedPlateRegExp.test(cmd.data)
 
   const isBooking = new RegExp(/(?<=\/book>)[\d]+/g).test(cmd.data)
 
   console.log(`ON callback_query: '${cmd.data}'`)
-  console.log(' IF ', isChoosingPlate)
+  console.log(' isChoosingPlate ', isChoosingPlate)
   console.log(' isChoosingDay ', isChoosingDay)
-  console.log(` isChoosingDay '${isChoosingDay}'`)
+  console.log(' choosedPlate ', choosedPlate)
   console.log(' ')
 
     
@@ -239,7 +285,7 @@ bot.on('callback_query', async (cmd) => {
     console.log(`${cmd.data}`)
     await getConnection()
 
-    const currentPage = Number(`${cmd.data}`.match(new RegExp(/(?<=\/[0-9]>).*/gi))) || 1
+    const currentPage = Number(`${cmd.data}`.match(new RegExp(/(?<=\/plates [0-9]>).*/gi))) || 1
 
     // First plate number 0xxx  => 0 | 1000
     const plateStartNumber = parseInt(cmd.data[platesPrefix.length])
@@ -248,6 +294,7 @@ bot.on('callback_query', async (cmd) => {
     let msgToDelete = await bot.sendMessage(cmd.message.chat.id, 'Please wait. Reciving data from database...')
       .then((msgDelete) => msgDelete.message_id)
 
+    let responceMsg = `${plateStartNumber}xxx`
     let allBy = await Plate.find({})
       .where('car_plate')
       .gte(plateStartNumber*1000)
@@ -256,24 +303,42 @@ bot.on('callback_query', async (cmd) => {
       .skip((currentPage-1)*paginationSize)
       .limit(paginationSize+1)
 
-    allBy = allBy.map(el => el.car_plate)
-
-    console.log(` ${plateStartNumber*1000} <= x > ${(plateStartNumber+1)*1000} `)
-    console.log(' ')
-    console.log(' Allby')
-    console.log(allBy)
-    console.log(' ')
-
-    // const allBy = CAR_PLATES.filter(number => number >= plateStartNumber*1000-1 && number < (plateStartNumber+1)*1000 )
-    //   .sort((a,b) => a-b)
-    
-    if (allBy[0] < 1000) allBy.forEach((num, i) =>  allBy[i] = String(num).padStart(4,'0'))
+    if(!allBy || !allBy.length) {
+      responceMsg = languagePack[`UA`].generate.PLATES_IS_NOT_REGISTERED(`${plateStartNumber}xxx`)
+    } else {
+      allBy = allBy.map(el => el.car_plate)
+  
+      console.log(` ${plateStartNumber*1000} <= x > ${(plateStartNumber+1)*1000} `)
+      console.log(' ')
+      console.log(' Allby')
+      console.log(allBy)
+      console.log(' ')
+  
+      // const allBy = CAR_PLATES.filter(number => number >= plateStartNumber*1000-1 && number < (plateStartNumber+1)*1000 )
+      //   .sort((a,b) => a-b)
+      
+      if (allBy[0] < 1000) allBy.forEach((num, i) =>  allBy[i] = String(num).padStart(4,'0'))
+    }
 
     // POSSIBLE NO PLATES
     bot.deleteMessage(cmd.message.chat.id, cmd.message.message_id)
     bot.deleteMessage(cmd.message.chat.id, msgToDelete)
 
-    bot.sendMessage(cmd.message.chat.id, `${plateStartNumber}xxx`, generatePlatesOptionByDBData(allBy, currentPage));
+    bot.sendMessage(cmd.message.chat.id, responceMsg, generatePlatesOptionByDBData(allBy, currentPage));
+  }
+
+  if (choosedPlate) {
+    await getConnection()
+    const plate = Number(`${cmd.data}`.match(new RegExp(/(?<=\/plate )[\d]+/gi)))
+
+    if (!plate) return bot.sendMessage(cmd.message.chat.id, 'Wrong plate')
+
+    const user = await User.findOne({ id: cmd.from.id })
+
+    if (!user) return bot.sendMessage(cmd.message.chat.id, 'You are not registered')
+
+    await User.findOneAndUpdate({ id: cmd.from.id }, { car_plate: plate })
+    bot.sendMessage(cmd.message.chat.id, `Your car plate is: ${String(plate).padStart(4,'0')}`)
   }
 
   // /week>2>3    /week>week>day | if day - request data
@@ -292,9 +357,9 @@ bot.on('callback_query', async (cmd) => {
       let msgToDelete = await bot.sendMessage(cmd.message.chat.id, 'Перевіряю місця. Будь ласка зачекайте...').then((msgDelete) => msgDelete.message_id)
 
       const startOfChoosedDay = date.getUnixTimeByFromCurrentWeek(day)
-      const dayy = new Date(startOfChoosedDay*1000)
 
-      console.log(' >>> ', dayy)
+      console.log(startOfChoosedDay)
+
 
       const dataFromDb = await Schedule.find({})
         .where('datetime')
@@ -304,8 +369,8 @@ bot.on('callback_query', async (cmd) => {
 
       const openToServe = genereteSchedule()
       dataFromDb.map(day => {
-        const key = `${new Date(day.date_unix * 1000).getHours()}:${new Date(day.date_unix * 1000).getMinutes()}`
-        console.log('key: ', key)
+        const key = `${String(new Date(day.datetime).getUTCHours()).padStart(2, '0')}:${String(new Date(day.datetime).getUTCMinutes()).padStart(2, '0')}`
+        console.log('key: ', key, `\t datetime: ${day.datetime}`)
         delete openToServe[`${key}`]
       })
 
@@ -323,10 +388,12 @@ bot.on('callback_query', async (cmd) => {
         // const options = generateSelectHourReservation( Object.keys(openToServe)  )
         Object.keys(openToServe)
 
+        const weekDayText = `${dates.getDayOfTheWeek(new Date(startOfChoosedDay).getUTCDay())} (${formatMonthDateByDate(new Date(startOfChoosedDay))})`
+
         const opt = generateSelectDayOption(Object.keys(openToServe), startOfChoosedDay, cmd.data)
         return bot.deleteMessage(cmd.message.chat.id, cmd.message.message_id).then(() => {
           bot.deleteMessage(cmd.message.chat.id, msgToDelete)
-          bot.sendMessage(cmd.message.chat.id, 'Choose hour', opt)
+          bot.sendMessage(cmd.message.chat.id, `${weekDayText}`, opt)
         })
       }
     } else {
@@ -344,30 +411,39 @@ bot.on('callback_query', async (cmd) => {
 
   if (isBooking) {
     console.log(' Booking process')
-    const user = cmd.from
-    console.log(user)
+    // const user = cmd.from
     const datetime = Number(`${cmd.data}`.match(new RegExp(/(?<=\/book>).*/gi)))
-    console.log(datetime)
 
     console.log('Unix time: ', datetime)
     console.log('U day: ', new Date(datetime))
-    console.log('U day: ', new Date(new Date(0).setUTCMilliseconds(datetime)))
-    console.log('Reserved day: ', new Date(datetime*1000))
-    console.log('Reserved day +3: ', new Date(datetime*1000 + 3*3600*1000))
+    // console.log('U day: ', new Date(new Date(0).setUTCMilliseconds(datetime)))
+    // console.log('Reserved day: ', new Date(datetime*1000))
+    // console.log('Reserved day +3: ', new Date(datetime*1000 + 3*3600*1000))
 
     await getConnection()
     const booked = await Schedule.findOne({ datetime })
     if (booked) {
-      return bot.sendMessage(cmd.message.chat.id, 'Вибачте, ця бронь уже зайнята.')
+      return bot.sendMessage(cmd.message.chat.id, 'Вибачте, ця година уже зайнята.')
     }
 
-    const newBook = new Schedule({
+    const user = await User.findOne({ id: cmd.from.id })
+
+    if (!user || !user.car_plate) {
+      return bot.sendMessage(cmd.message.chat.id, `You wasn't authorized or you don't have assigned car plate. Write: /start`)
+    }
+
+    const newBook = await new Schedule({
       id: user.id,
-      datetime: datetime,
-      user_fullname: `${user.first_name} ${user.last_name | ''}`,
-      car_plate: 2546,
-    })
-    
+      datetime,
+      user_fullname: `${user.first_name} ${user.last_name || ''}`,
+      car_plate: user.car_plate,
+    }).save()
+
+    // const toSave = new Date(newBook.datetime).toLocaleString("es-CL")
+
+    const savedDateUTC = `${new Date(datetime).getUTCDate()}-${new Date(datetime).getUTCMonth()+1}-${new Date(datetime).getUTCFullYear()} ${String(new Date(datetime).getUTCHours()).padStart(2,'0')}:${String(new Date(datetime).getUTCMinutes()).padStart(2,'0')}`
+
+    bot.sendMessage(cmd.message.chat.id, `You just booked\t${savedDateUTC}`)
   }
 
   // RegExp  >choose_hour 7
@@ -390,7 +466,11 @@ bot.on('callback_query', async (cmd) => {
 
 bot.onText(/\/add_plate/, async (msg) => {
   await getConnection()
-  const user = await User.findOne({ id: user.id })
+  const user = await User.findOne({ id: msg.from.id })
+
+  if (!user) {
+    return bot.sendMessage(msg.chat.id, `Wrong sequesnce! You are not authorized. Write: /start`)
+  }
 
   if(user.is_admin) {
     bot.sendMessage(msg.chat.id, 'Write car plate number').then(

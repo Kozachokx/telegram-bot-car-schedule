@@ -30,10 +30,10 @@ const getUnixTimeByFromCurrentWeek = (day, endDate = false) => {
 
   const result = new Date(today.setUTCDate(today.getUTCDate() - today.getUTCDay() + day)).getTime();
 
-  console.log('getUnixTimeByFromCurrentWeek > today > ',today)
-  console.log(`getUnixTimeByFromCurrentWeek > ${endDate ? 'END' : 'START'} > \t`, new Date(today.setUTCDate(today.getUTCDate() - today.getUTCDay() + day)))
-  console.log('getUnixTimeByFromCurrentWeek > returns > \t', new Date(result), '\t'  ,result)
-  console.log('getUnixTimeByFromCurrentWeek > WASreturns > \t', new Date(new Date(todayWas.setDate(todayWas.getDate() - todayWas.getDay() + day)).getTime()), '\t' ,new Date(todayWas.setDate(todayWas.getDate() - todayWas.getDay() + day)).getTime())
+  // console.log('getUnixTimeByFromCurrentWeek > today > ',today)
+  // console.log(`getUnixTimeByFromCurrentWeek > ${endDate ? 'END' : 'START'} \t\t> `, new Date(today.setUTCDate(today.getUTCDate() - today.getUTCDay() + day)))
+  console.log('getUnixTimeByFromCurrentWeek > returns \t> ', new Date(result), '\t'  ,result)
+  // console.log('getUnixTimeByFromCurrentWeek > WASreturns > \t', new Date(new Date(todayWas.setDate(todayWas.getDate() - todayWas.getDay() + day)).getTime()), '\t' ,new Date(todayWas.setDate(todayWas.getDate() - todayWas.getDay() + day)).getTime())
 
   return result;
 }
