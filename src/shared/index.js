@@ -1,3 +1,4 @@
 module.exports = {
-  ...require('./pagination')
+  ...require('./pagination'),
+  date: require('./daytime'),
 }

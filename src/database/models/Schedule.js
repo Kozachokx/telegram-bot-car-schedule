@@ -2,12 +2,22 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema;
 
 const scheduleSchema = new Schema({
-  date_unix: {
+  // Date.now() / 1000 | Int
+  // date: {
+  //   type: Date,
+  //   required: true,
+  //   unique: true
+  // },
+  datetime: {
     type: Number,
     required: true,
     unique: true
   },
-  user_name: {
+  id: {
+    type: Number,
+    required: true
+  },
+  user_fullname: {
     type: String,
     required: true
   },
@@ -15,7 +25,7 @@ const scheduleSchema = new Schema({
     type: Number,
     required: true
   },
-})
+}, { versionKey: false })
 
 const Schedule = mongoose.model('schedule', scheduleSchema)
 

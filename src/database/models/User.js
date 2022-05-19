@@ -2,20 +2,36 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
-  user_id: {
+  id: {
     type: Number,
+    required: true,
+    unique: true
+  },
+  first_name: {
+    type: String,
     required: true
   },
-  user_name: {
+  last_name: {
+    type: String,
+    required: false
+  },
+  username: {
     type: String,
     required: true
   },
   car_plate: {
     type: Number,
-    required: true
+    required: false
   },
-  // user_id: Number,
-})
+  language_code: {
+    type: String,
+    default: 'uk'
+  },
+  is_admin: {
+    type: Boolean,
+    default: false
+  }
+}, { versionKey: false })
 
 const User = mongoose.model('user', userSchema)
 

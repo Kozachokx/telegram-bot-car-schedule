@@ -15,9 +15,9 @@ const platesSchema = new Schema({
     unique: true,
     // validate: [validatePlate, 'Please fill valid plate number']
   },
-})
+}, { versionKey: false })
 
-const Plate = mongoose.model('plates', platesSchema)
+const Plate = mongoose.model('plate', platesSchema)
 
 platesSchema.pre('save', (next) => {
   console.log(' ')

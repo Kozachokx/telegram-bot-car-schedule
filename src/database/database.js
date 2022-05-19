@@ -34,9 +34,17 @@ const getConnection = async () => {
   }
 }
 
+const requestWrapper = async (callback) => {
+  try {
+    return await callback;
+  } catch (err) {
+    console.log('requestWrapper Error: ', err)
+  }
+}
+
 mongoose.connection.on('error', (error) => console.error('MongoDB connection error:', error))
 
-module.exports = { getConnection }
+module.exports = { getConnection, requestWrapper }
 
 // magic_user
 // rndMg1cPasw0rd
