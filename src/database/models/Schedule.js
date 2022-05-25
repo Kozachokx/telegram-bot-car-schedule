@@ -25,7 +25,17 @@ const scheduleSchema = new Schema({
     type: Number,
     required: true
   },
-}, { versionKey: false })
+  created_at: { type: Date, default: Date.now() }
+}, { 
+  versionKey: false,
+  // timestamps: { createdAt: 'created_at' }
+})
+
+
+// scheduleSchema.pre('save', (next) => {
+//   this.created_at = Date.now();
+//   next();
+// })
 
 const Schedule = mongoose.model('schedule', scheduleSchema)
 

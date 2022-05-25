@@ -1,6 +1,6 @@
 module.exports = {
+  ...require('./createMatrix'),
   ...require('./pagination'),
-  date: require('./daytime'),
-  dates: require('./date'),
+  date: require('./date'),
   message: require('./message')
 }
